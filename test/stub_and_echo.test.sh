@@ -14,14 +14,14 @@ stub_and_echo "my-name-is" "Hohenheim"
 assert "my-name-is" "Hohenheim"
 assert "my-name-is Edward" "Hohenheim"
 assert "my-name-is Edward Elric" "Hohenheim"
-unset -f my-name-is
+restore my-name-is
 
 
 # Stubbing a executable file.
 stub_and_echo "uname" "State Alchemist"
 assert "uname" "State Alchemist"
 assert "uname -h" "State Alchemist"
-unset -f uname
+restore uname
 
 
 # Redirect stub output to STDERR.
@@ -29,14 +29,14 @@ my-name-is() { echo "My name is $@."; }
 stub_and_echo "my-name-is" "Hohenheim" STDERR
 assert "my-name-is Edward" ""
 assert "my-name-is Edward 2>&1" "Hohenheim"
-unset -f my-name-is
+restore my-name-is
 
 
 # Stubbing something that doesn't exist.
 stub_and_echo "cowabunga-dude" "Surf's up dude :D"
 assert "cowabunga-dude" "Surf's up dude :D"
 assert "cowabunga-dude yeah dude" "Surf's up dude :D"
-unset -f cowabunga-dude
+restore cowabunga-dude
 
 
 # End of tests.
