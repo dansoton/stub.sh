@@ -33,7 +33,7 @@ unset -f my-name-is
 stub "uname" STDOUT
 assert "uname" "uname stub: "
 assert "uname -r" "uname stub: -r"
-unset -f my-name-is
+unset -f uname
 
 
 # Redirect stub of bash function output to STDERR.
@@ -49,7 +49,7 @@ stub "uname" STDERR
 assert "uname -r" ""
 assert "uname 2>&1" "uname stub: "
 assert "uname -r 2>&1" "uname stub: -r"
-unset -f my-name-is
+unset -f uname
 
 
 # Redirect stub of bash function output to /dev/null.
