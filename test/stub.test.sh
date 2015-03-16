@@ -68,5 +68,71 @@ assert "cowabunga-dude yeah dude" "cowabunga-dude stub: yeah dude"
 restore cowabunga-dude
 
 
+# Stubbing a sub-command (command + argument combinations)
+assert "seq 3" "1\n2\n3"
+stub "seq 4"
+assert "seq 3" "1\n2\n3"
+assert "seq 4" ""
+restore "seq 4"
+assert "seq 4" "1\n2\n3\n4"
+
+
+# Stubbing 2 sub-commands with 1 having output to STDOUT
+assert "seq 3" "1\n2\n3"
+stub "seq 4" STDOUT
+stub "seq 2"
+assert "seq 3" "1\n2\n3"
+assert "seq 4" "seq 4 stub: "
+assert "seq 4 ok" "seq 4 stub: ok"
+assert "seq 2" ""
+restore "seq 2"
+restore "seq 4"
+assert "seq 2" "1\n2"
+assert "seq 4" "1\n2\n3\n4"
+
+
+# Stubbing sub-command ensuring it splits stubs on whole arguments only
+assert "seq 3" "1\n2\n3"
+stub "seq 1"
+assert "seq 1" ""
+assert "seq 10" "1\n2\n3\n4\n5\n6\n7\n8\n9\n10"
+restore "seq 1"
+
+
+# Stubbing sub-command and base command
+assert "seq 3" "1\n2\n3"
+stub "seq 4" STDOUT
+stub "seq" STDERR
+assert "seq 3" ""
+assert "seq 3 2>&1" "seq stub: 3"
+assert "seq 4" "seq 4 stub: "
+restore "seq 4"
+restore "seq"
+assert "seq 3" "1\n2\n3"
+assert "seq 4" "1\n2\n3\n4"
+
+
+# Check stubbing sub-commands keeps track of the number and removes the
+# stub function when all stubs of that command have been restored
+# First check seq is not a function, but the real cmd
+assert_raises "type seq | grep 'seq is a function' &> /dev/null" 1
+stub "seq 4"
+# After stubbing 'seq 4' 'seq' itself should be a stubbing function
+# (it would delegate to the real 'seq' for anything not starting 'seq 4')
+assert_raises "type seq | grep 'seq is a function' &> /dev/null" 0
+stub "seq 2"
+restore "seq 4"
+# After another stub and a restore, we still have one stub combination
+assert_raises "type seq | grep 'seq is a function' &> /dev/null" 0
+stub "seq"
+stub "seq 1"
+restore "seq"
+restore "seq 2"
+# After another 2 stubs and restores, we still have one stub combination
+assert_raises "type seq | grep 'seq is a function' &> /dev/null" 0
+restore "seq 1"
+# Finally after the last restore, seq should go back to be the real cmd
+assert_raises "type seq | grep 'seq is a function' &> /dev/null" 1
+
 # End of tests.
 assert_end "stub()"

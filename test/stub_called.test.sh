@@ -39,6 +39,24 @@ assert_raises 'stub_called "top"' 0
 restore "uname"
 restore "top"
 
+# Check stub_called works with individual sub-command combinations
+stub "uname"
+stub "uname X"
+assert_raises 'stub_called "uname"' 1
+assert_raises 'stub_called "uname X"' 1
+uname X
+assert_raises 'stub_called "uname"' 1
+assert_raises 'stub_called "uname X"' 0
+uname
+assert_raises 'stub_called "uname"' 0
+assert_raises 'stub_called "uname X"' 0
+stub "uname Y"
+assert_raises 'stub_called "uname"' 0
+assert_raises 'stub_called "uname X"' 0
+assert_raises 'stub_called "uname Y"' 1
+restore "uname"
+restore "uname X"
+restore "uname Y"
 
 # End of tests.
 assert_end "stub_called()"

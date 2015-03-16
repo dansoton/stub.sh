@@ -9,23 +9,39 @@ source "test-helper.sh"
 # Stubbing and restoring a bash function.
 my-name-is() { echo "My name is $@."; }
 assert "my-name-is Edward Elric" "My name is Edward Elric."
+assert "my-name-is John Doe" "My name is John Doe."
 
 stub "my-name-is" stdout
-assert "my-name-is Edward Elric" "my-name-is stub: Edward Elric"
+stub "my-name-is John Doe" stdout
 
-restore "my-name-is" stdout
+assert "my-name-is Edward Elric" "my-name-is stub: Edward Elric"
+assert "my-name-is John Doe" "my-name-is John Doe stub: "
+
+restore "my-name-is"
 assert "my-name-is Edward Elric" "My name is Edward Elric."
+assert "my-name-is John Doe" "my-name-is John Doe stub: "
+
+restore "my-name-is John Doe"
+assert "my-name-is John Doe" "My name is John Doe."
 
 
 # Stubbing and restoring a executable file.
 actual_uname="$(uname)"
+actual_uname_m="$(uname -m)"
+
 stub "uname" stdout
+stub "uname -m" stdout
+
 assert "uname" "uname stub: "
 assert "uname -a" "uname stub: -a"
+assert "uname -m" "uname -m stub: "
 
 restore "uname"
 assert "uname" "$actual_uname"
+assert "uname -m" "uname -m stub: "
 
+restore "uname -m"
+assert "uname -m" "$actual_uname_m"
 
 # Stubbing and restoring something that doesn't exist.
 assert_raises "cowabunga-dude" 127
@@ -65,6 +81,16 @@ assert_raises "type bar | grep 'bar is a function' &> /dev/null" 1
 assert_raises "type baz | grep 'baz is a function' &> /dev/null" 0
 restore "baz"
 assert_raises "type baz | grep 'baz is a function' &> /dev/null" 1
+
+
+# Stubbing a function and not restoring it should not prevent
+# another stub from being restored. A bug caused this to happen.
+stub "foo"
+stub "seq"
+assert_raises "type seq | grep 'seq is a function' &> /dev/null" 0
+restore "seq"
+assert_raises "type seq | grep 'seq is a function' &> /dev/null" 1
+assert_raises "type foo | grep 'foo is a function' &> /dev/null" 0
 
 
 # End of tests.

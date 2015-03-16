@@ -6,16 +6,30 @@ source "test-helper.sh"
 #
 
 # Adds call to stub call list.
-STUB_INDEX=("uname=0")
-STUB_0_CALLS=()
-__stub_call "uname"
-__stub_call "uname" -r
-__stub_call "uname" -r -a
-assert 'echo ${STUB_0_CALLS[@]}' "<none> -r -r -a"
-assert 'echo ${STUB_0_CALLS[0]}' "<none>"
-assert 'echo ${STUB_0_CALLS[1]}' "-r"
-assert 'echo ${STUB_0_CALLS[2]}' "-r -a"
+STUB_INDEX="uname=0
+uname X=1"
 
+__stub_call "uname" 0
+__stub_call "uname" 0 -r
+__stub_call "uname" 0 -r -a
+
+__stub_call "uname X" 1
+__stub_call "uname X" 1 Y
+__stub_call "uname X" 1 Y Z
+
+# Invoking __stub_call_history_array sets the call_history array
+__stub_call_history_array "uname"
+
+assert 'echo ${call_history[@]}' "<none> -r -r -a"
+assert 'echo ${call_history[0]}' "<none>"
+assert 'echo ${call_history[1]}' "-r"
+assert 'echo ${call_history[2]}' "-r -a"
+
+__stub_call_history_array "uname X"
+
+assert 'echo ${call_history[0]}' "<none>"
+assert 'echo ${call_history[1]}' "Y"
+assert 'echo ${call_history[2]}' "Y Z"
 
 # End of tests.
 assert_end "__stub_call()"
