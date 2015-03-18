@@ -318,14 +318,29 @@ stub_called_with_at_most_times() {
 }
 
 
-# Public: Restore the original command/function that was stubbed.
+# Public: Restore the original command/functions that were stubbed.
 #
 # Arguments:
-#   - $1: Name of command to restore.
+#   - $@: Name of the commands to restore.
 #
 # Echoes nothing.
 # Returns nothing.
 restore() {
+  while [ $# != 0 ]; do
+    __restore "$1"
+    shift
+  done
+}
+
+
+# Private: Restores a single original command/function that was stubbed.
+#
+# Arguments:
+#   - $1: Name of the command to restore.
+#
+# Echoes nothing.
+# Returns nothing.
+__restore() {
   local cmd="$1"
 
   # Don't do anything if the command isn't currently stubbed.

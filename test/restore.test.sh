@@ -54,6 +54,18 @@ restore "my-name-is"
 assert "my-name-is Edward Elric" "My name is Edward Elric."
 
 
+# Ensure restore supports restoring multiple stubs at once
+stub "foo"
+stub "bar"
+stub "baz"
+
+restore "bar" "foo"
+assert_raises "type foo | grep 'foo is a function' &> /dev/null" 1
+assert_raises "type bar | grep 'bar is a function' &> /dev/null" 1
+assert_raises "type baz | grep 'baz is a function' &> /dev/null" 0
+restore "baz"
+assert_raises "type baz | grep 'baz is a function' &> /dev/null" 1
+
 
 # End of tests.
 assert_end "restore()"
