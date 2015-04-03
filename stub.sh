@@ -148,7 +148,9 @@ __deregister_stubbed_command() {
 
 __stubbed_command_index() {
   local cmd="$1"
-  local index_matched=$(echo "$STUBBED_COMMANDS" | $SED -rn 's/^'"${cmd}"'=(.)/\1/p')
+  local escaped_cmd=$(escape_for_sed "$cmd")
+
+  local index_matched=$(echo "$STUBBED_COMMANDS" | $SED -rn 's/^'"${escaped_cmd}"'=(.)/\1/p')
 
   if [ -n "$index_matched" ]; then
     trace "__stubbed_command_index(): Index matched for stubbed command '$cmd': $index_matched"
@@ -214,8 +216,9 @@ __add_line() {
 __remove_index_line() {
   local existing_contents="$1"
   local cmd_to_remove="$2"
+  local escaped_cmd_to_remove=$(escape_for_sed "$cmd_to_remove")
 
-  echo "$existing_contents" | $SED "/^${cmd_to_remove}=/d"
+  echo "$existing_contents" | $SED "/^${escaped_cmd_to_remove}=/d"
 }
 
 
@@ -490,8 +493,12 @@ stub_called_with_times() {
   # Loads the call history into the 'call_history' array variable
   __stub_call_history_array "$cmd_and_args"
 
+  # The args are flattened to one-line in the call history
+  # as each line represents a separate call.
+  # So we need to flatten the args passed in before looking in the history.
+  args_flattened_to_one_line="$(escape_linebreaks "${quoted_args[*]}")"
   for call in "${call_history[@]}"; do
-    if [ "$call" == "${quoted_args[*]}" ]; then ((count++)); fi
+    if [ "$call" == "$args_flattened_to_one_line" ]; then ((count++)); fi
   done
 
   echo $count
@@ -699,10 +706,11 @@ restore() {
     # which share the same base command but may have different arguments
     if [[ "$1" =~ (.*)[[:space:]]+\* ]] ; then
       local cmd="${BASH_REMATCH[1]}"
+      local escaped_cmd=$(escape_for_sed "$cmd")
 
       debug "restore(): Attempting to restore all stubs for the base command '$cmd'"
 
-      local stubs_matched_str=$(echo "$STUBS_ACTIVE" | $SED -rn 's/^('"${cmd}"'([[:space:]]+.+)?)=[[:digit:]]+$/\1/p')
+      local stubs_matched_str=$(echo "$STUBS_ACTIVE" | $SED -rn 's/^('"${escaped_cmd}"'([[:space:]]+.+)?)=[[:digit:]]+$/\1/p')
       if [ -n "$stubs_matched_str" ]; then
         local stubs_matched=()
         while read cmd_and_args; do
@@ -780,9 +788,10 @@ __stub_call() {
   # wrapping args with spaces in with quotes first so that the history
   # shows single arguments with spaces in correctly
   __quote_args "${args[@]}"
+  args_flattened_to_one_line="$(escape_linebreaks "${quoted_args[*]}")"
 
   local call_history_file=$(__call_history_file "$cmd_and_args" "$stub_index")
-  echo "${quoted_args[@]}" >> "$call_history_file"
+  echo "$args_flattened_to_one_line" >> "$call_history_file"
 
   trace "__stub_call(): Stub: $cmd_and_args; index: $stub_index; args: ${quoted_args[@]};" \
           "Call history file: $call_history_file"
@@ -807,11 +816,12 @@ __quote_args() {
 # Private: Return the stub index of a particular active command
 __active_stub_index() {
   __parse_cmd "$1"
+  local escaped_cmd_and_args=$(escape_for_sed "$cmd_and_args")
 
   trace "Looking for active stub index for '$cmd_and_args' from the active stubs:"
   trace "$STUBS_ACTIVE"
 
-  local active_index=$(echo "$STUBS_ACTIVE" | $SED -rn 's/^'"${cmd_and_args}"'=([[:digit:]]+)$$/\1/p')
+  local active_index=$(echo "$STUBS_ACTIVE" | $SED -rn "s/^${escaped_cmd_and_args}=([[:digit:]]+)\$/\1/p")
   if [ -n "$active_index" ]; then
     trace "Stub '$cmd_and_args' is active, index: $active_index"
     echo "$active_index"
@@ -825,12 +835,13 @@ __active_stub_index() {
 # Private: Return the stub index of a particular command
 __stub_index() {
   __parse_cmd "$1"
+  local escaped_cmd_and_args=$(escape_for_sed "$cmd_and_args")
 
   trace "Looking for stub index for '$cmd_and_args' in index:"$'\n'"$STUB_INDEX"
 
   local index_matched=
   if [ -n "$STUB_INDEX" ]; then
-    index_matched=$(echo "$STUB_INDEX" | $SED -rn 's/^'"${cmd_and_args}"'=([[:digit:]]+)$/\1/p')
+    index_matched=$(echo "$STUB_INDEX" | $SED -rn 's/^'"${escaped_cmd_and_args}"'=([[:digit:]]+)$/\1/p')
   fi
 
   if [ -n "$index_matched" ]; then
@@ -903,7 +914,7 @@ __stub_clean() {
 # Private: Parses the command to stub/restore ($1) into the base command
 # and any args that are part of the particular stub
 __parse_cmd() {
-  cmd_and_args="$1"
+  cmd_and_args=$(escape_linebreaks "$1")
   cmd="$cmd_and_args"
   cmd_args=
 
@@ -938,10 +949,11 @@ __find_stub() {
     # Create the stub string from the cmd and current args
     local current_cmd_and_args="$cmd"
     if [ "${#cmd_args[@]}" -gt 0 ]; then
-      current_cmd_and_args="$cmd ${cmd_args[@]}"
+      __quote_args "${cmd_args[@]}"
+      current_cmd_and_args="$cmd ${quoted_args[*]}"
     fi
 
-    trace "__find_stub(): Searching for: '$current_cmd_and_args'"
+    trace "__find_stub(): Searching for: $current_cmd_and_args"
     stub_index=$(__active_stub_index "$current_cmd_and_args")
 
     # If no match found and we still have arguments
@@ -1064,6 +1076,16 @@ __as_csv() {
 
 __set_variable() {
   export $1="$2"
+}
+
+escape_for_sed() {
+  echo "$1" | $SED -e 's/[]\/$+*.^|{}[]/\\&/g'
+  # echo "$1" | $SED -e 's/\//\\&/g'
+}
+
+escape_linebreaks() {
+  # See: http://stackoverflow.com/a/1252191/1161972
+  echo "$1" | $SED -e ':a' -e 'N' -e '$!ba' -e 's/\n/\\\\n/g'
 }
 
 # Private: Function to return whether debug information is enabled or not.
